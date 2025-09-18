@@ -29,43 +29,44 @@
 
 - name: Start image build
   vars:
-    ostree_ref: "{{ rhel_image_ostree_ref | default(false) }}"
-    ref_option: "{{ ostree_ref | ternary('--ref ' + ostree_ref | string, '') }}"
-    ostree_parent: "{{ rhel_image_ostree_parent | default(false) }}"
-    parent_option: "{{ ostree_parent | ternary('--parent ' + ostree_parent | string, '') }}"
-    ostree_url: "{{ rhel_image_ostree_url | default(false) }}"
-    url_option: "{{ ostree_url | ternary('--url ' + ostree_url | string, '') }}"
-    size_mb: "{{ rhel_image_size | default(false) }}"
-    size_option: "{{ size_mb | ternary('--size ' + size_mb | string, '') }}"
-    start_cmd: "{{ 'start-ostree' if ostree_ref else 'start' }}"
+    __rhi_ostree_ref: "{{ rhel_image_ostree_ref | default(false) }}"
+    __rhi_ref_option: "{{ __rhi_ostree_ref | ternary('--ref ' + __rhi_ostree_ref | string, '') }}"
+    __rhi_ostree_parent: "{{ rhel_image_ostree_parent | default(false) }}"
+    __rhi_parent_option: "{{ __rhi_ostree_parent | ternary('--parent ' + __rhi_ostree_parent | string, '') }}"
+    __rhi_ostree_url: "{{ rhel_image_ostree_url | default(false) }}"
+    __rhi_url_option: "{{ __rhi_ostree_url | ternary('--url ' + __rhi_ostree_url | string, '') }}"
+    __rhi_size_mb: "{{ rhel_image_size | default(false) }}"
+    __rhi_size_option: "{{ __rhi_size_mb | ternary('--size ' + __rhi_size_mb | string, '') }}"
+    __rhi_start_cmd: "{{ 'start-ostree' if __rhi_ostree_ref else 'start' }}"
   ansible.builtin.command: >
-    composer-cli compose {{ start_cmd }} {{ ref_option }} {{ parent_option }} {{ url_option }} {{ size_option }}
+    composer-cli compose
+    {{ __rhi_start_cmd }} {{ __rhi_ref_option }} {{ __rhi_parent_option }} {{ __rhi_url_option }} {{ __rhi_size_option }}
     {{ rhel_image_blueprint }} {{ rhel_image_output_type }}
-  register: build_command
+  register: __rhi_build_command
   changed_when: true
 
 - name: Record build UUID
   ansible.builtin.set_fact:
-    build_uuid: "{{ (build_command.stdout_lines | select('search', '^Compose ') | first).split()[1] }}"
+    __rhi_build_uuid: "{{ (__rhi_build_command.stdout_lines | select('search', '^Compose ') | first).split()[1] }}"
 
 - name: Wait for image build to complete
-  ansible.builtin.command: composer-cli compose info {{ build_uuid }}
-  register: build_status
-  failed_when: "'not a valid build' in build_status.stderr or 'FAILED' in build_status.stdout"
+  ansible.builtin.command: composer-cli compose info {{ __rhi_build_uuid }}
+  register: __rhi_build_status
+  failed_when: "'not a valid build' in __rhi_build_status.stderr or 'FAILED' in __rhi_build_status.stdout"
   changed_when: false
   ignore_errors: true
-  until: "'not a valid build' in build_status.stderr or 'FAILED' in build_status.stdout or 'FINISHED' in build_status.stdout"
+  until: "'not a valid build' in __rhi_build_status.stderr or 'FAILED' in __rhi_build_status.stdout or 'FINISHED' in __rhi_build_status.stdout"
   retries: 30
   delay: 30
 
 - name: Display failed build logs
   ansible.builtin.include_tasks: build_logs_display.yml
-  when: "'not a valid build' in build_status.stderr or 'FAILED' in build_status.stdout"
+  when: "'not a valid build' in __rhi_build_status.stderr or 'FAILED' in __rhi_build_status.stdout"
 
 - name: Fail if build not successful
   ansible.builtin.fail:
     msg: "Build failed."
-  when: "'not a valid build' in build_status.stderr or 'FAILED' in build_status.stdout"
+  when: "'not a valid build' in __rhi_build_status.stderr or 'FAILED' in __rhi_build_status.stdout"
 
 - name: Create image download directory
   ansible.builtin.file:
@@ -75,16 +76,16 @@
 
 - name: Download image from osbuilder
   vars:
-    build_file: "{{ rhel_image_filename if rhel_image_filename else build_uuid }}"
-    cmd_params: "{{ '' if build_file == build_uuid else '--filename ' + build_file }}"
+    __rhi_build_file: "{{ rhel_image_filename if rhel_image_filename else __rhi_build_uuid }}"
+    __rhi_cmd_params: "{{ '' if __rhi_build_file == __rhi_build_uuid else '--filename ' + __rhi_build_file }}"
   ansible.builtin.command:
-    cmd: composer-cli compose image {{ build_uuid }} {{ cmd_params }}
+    cmd: composer-cli compose image {{ __rhi_build_uuid }} {{ __rhi_cmd_params }}
     chdir: "{{ rhel_image_download_dir }}"
-  register: image_file
+  register: __rhi_image_file
   changed_when: true
 
 - name: Delete image build from osbuilder
-  ansible.builtin.command: composer-cli compose delete {{ build_uuid }}
+  ansible.builtin.command: composer-cli compose delete {{ __rhi_build_uuid }}
   changed_when: true
   when: rhel_image_build_remove | bool
 

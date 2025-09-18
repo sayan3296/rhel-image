@@ -1,19 +1,19 @@
 ---
 - name: Get list of builds
   ansible.builtin.command: composer-cli compose list
-  register: build_list
+  register: __rhi_build_list
   changed_when: false
 
 - name: Delete builds
   ansible.builtin.command: composer-cli compose delete {{ item | split | first }}
-  register: build_delete
+  register: __rhi_build_delete
   changed_when: true
-  loop: "{{ build_list.stdout_lines | reject('search', 'Status') }}"
+  loop: "{{ __rhi_build_list.stdout_lines | reject('search', 'Status') }}"
 
 - name: Wait for build deletion to complete
   ansible.builtin.pause:
     seconds: 10
-  when: build_delete is changed
+  when: __rhi_build_delete is changed
 
 # https://bugzilla.redhat.com/show_bug.cgi?id=2023280
 - name: Get list of build artifacts to delete
@@ -26,14 +26,14 @@
       - /var/lib/osbuild-composer/jobs
     file_type: any
     recurse: false
-  register: build_artifacts
+  register: __rhi_build_artifacts
 
 # https://bugzilla.redhat.com/show_bug.cgi?id=2023280
 - name: Delete build artifacts
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop: "{{ build_artifacts.files }}"
+  loop: "{{ __rhi_build_artifacts.files }}"
   loop_control:
     label: "{{ item.path }}"
 
@@ -45,13 +45,13 @@
     file_type: directory
     patterns: 'dnf-_osbuild-composer*,tmp*'
     recurse: false
-  register: temp_directories
+  register: __rhi_temp_directories
 
 - name: Delete osbuilder temporary directories
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop: "{{ temp_directories.files }}"
+  loop: "{{ __rhi_temp_directories.files }}"
   loop_control:
     label: "{{ item.path }}"
   when: item.pw_name == '_osbuild-composer'
