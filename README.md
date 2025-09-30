@@ -115,6 +115,9 @@ See also
 See also
 [https://access.redhat.com/solutions/5773421](https://access.redhat.com/solutions/5773421).
 
+See also
+[https://github.com/myllynen/rhel-image-mode](https://github.com/myllynen/rhel-image-mode).
+
 ## License
 
 GPLv3+
